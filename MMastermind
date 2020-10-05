@@ -1,0 +1,204 @@
+
+
+class CodeBreaker
+  @@colors = ["r", "y", "g", "b", "o"]
+end
+
+
+class CodeMaker
+  @@colors = ["r", "y", "g", "b", "o"]
+
+  def initialize
+    @code = []
+  end
+
+  def generate_feedback(guess)
+    check_array = @code.clone
+   
+
+    checked_exact = guess.map.with_index do |element, index|
+      if element == check_array[index]
+        element = 'Red'
+        check_array[index] = ' '
+      end
+      element
+    end
+
+    
+    checked_similar = checked_exact.map do |element|
+      if check_array.include?(element)
+        check_array[check_array.index(element)] = ' '
+        element = 'White'
+      end
+      element
+    end
+
+    
+    checked_similar.map do |element|
+      element = ' ' unless %w[Red White].include?(element)
+      element
+    end
+  end
+
+  def correct_guess?(guess)
+    @code.eql?(guess)
+  end
+end
+
+
+class PlayerBreaker < CodeBreaker
+  def player_guess
+    code_guess = []
+    (1..4).each do |num|
+      puts "Please pick which color (#{@@colors}) you think is in the #{num} spot of the secret code"
+      color_choice = gets.chomp.downcase
+      unless @@colors.include?(color_choice)
+        puts 'That is not an appropriate choice'
+        redo
+      end
+      code_guess << color_choice
+    end
+    code_guess
+  end
+end
+
+
+class ComputerBreaker < CodeBreaker
+  def guess(feedback, last_guess, already_chosen, maybe)
+    return Array.new(4) { @@colors.sample }, already_chosen, maybe unless feedback
+
+    new_guess = Array.new(4)
+    feedback.each_with_index do |element, index|
+      if element == 'Red'
+        new_guess[index] = last_guess[index]
+      else
+        already_chosen[index] << (last_guess[index])
+        if (maybe - already_chosen[index]).any?
+          new_guess[index] = (maybe - already_chosen[index]).sample
+          maybe -= Array(new_guess[index])
+        else
+          new_guess[index] = (@@colors - already_chosen[index]).sample
+        end
+        maybe << last_guess[index] if element == 'White'
+      end
+    end
+    return new_guess, already_chosen, maybe
+  end
+end
+
+
+class PlayerMaker < CodeMaker
+  def initialize
+    @code = make_code
+  end
+
+  def make_code
+    code = []
+    puts 'Time to pick your secret code!'
+    (1..4).each do |num|
+      puts "Please pick which color (#{@@colors}) you'd like as the #{num} spot of the secret code"
+      color_choice = gets.chomp.downcase
+      unless @@colors.include?(color_choice)
+        puts 'That is not an appropriate choice'
+        redo
+      end
+      code << color_choice
+    end
+    puts "Got your secret code is: #{code}"
+    code
+  end
+end
+
+
+class ComputerMaker < CodeMaker
+  def initialize
+    @code = generate_code
+  end
+
+  def generate_code
+    @code = Array.new(4) { @@colors.sample }
+  end
+end
+
+
+class Gameboard
+  attr_accessor :guesses, :feedback
+
+  def initialize
+    @guesses = Array.new(6, Array.new(4, ' '))
+    @feedback = Array.new(6, [])
+  end
+
+  def display_board
+    puts '   guesses          feedback'
+    6.times do |i|
+      puts " #{@guesses[i].join('  ')} : #{@feedback[i]}"
+    end
+  end
+
+  def play_again?
+    puts "Press the 'Y' key if you'd like to play again!"
+    player_response = gets.chomp.downcase
+    player_response == 'y'
+  end
+end
+
+def start_game
+  puts "\n1. To be Code Breaker \n2. To be Code Maker"
+  breaker_or_maker = gets.chomp.to_i
+  code_breaker if breaker_or_maker == 1
+  code_maker if breaker_or_maker == 2
+end
+
+def code_breaker
+  computer = ComputerMaker.new
+  player = PlayerBreaker.new
+  gameboard = Gameboard.new
+  (1..6).each do |num|
+    puts "Round #{num}!"
+    player_guess = player.player_guess
+    gameboard.guesses[num - 1] = player_guess
+    win = computer.correct_guess?(player_guess)
+    if win
+      puts "Congrats! You picked the computers code! You're a Mastermind!"
+      break
+    else
+      puts 'ok..!'
+      feedback = computer.generate_feedback(player_guess)
+      gameboard.feedback[num - 1] = feedback
+      gameboard.display_board
+    end
+    puts 'Computer wins this time' if num == 6
+  end
+  gameboard.play_again? ? start_game : puts('Bye!')
+end
+
+def code_maker
+  
+  computer = ComputerBreaker.new
+  player = PlayerMaker.new
+  gameboard = Gameboard.new
+  feedback = nil
+  computer_guess = []
+  already_chosen = [[], [], [], []]
+  maybe = []
+  (1..6).each do |num|
+    puts "Round #{num}"
+    computer_guess, already_chosen, maybe = computer.guess(feedback, computer_guess, already_chosen, maybe)
+    gameboard.guesses[num - 1] = computer_guess
+    win = player.correct_guess?(computer_guess)
+    if win
+      puts "Your code is guessed!"
+      break
+    else
+      puts 'Computer missed it'
+      feedback = player.generate_feedback(computer_guess)
+      gameboard.feedback[num - 1] = feedback
+      gameboard.display_board
+    end
+    puts 'Game over! The computer was unable to guess your code! You Win!' if num == 6
+  end
+  gameboard.play_again? ? start_game : puts('Bye!')
+end
+
+start_game
