@@ -31,7 +31,7 @@ class CodeMaker
         element = 'White'
       end
       element
-    end
+    end 
 
     
     checked_similar.map do |element|
